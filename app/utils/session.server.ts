@@ -3,22 +3,28 @@ import { createCookieSessionStorage, redirect } from "remix";
 
 import { db } from "./db.server";
 
-export const login = async (
-  username: string,
-  password: string
-): Promise<{ id: string; username: string } | null> => {
-  const userInDb = await db.user.findUnique({
-    where: {
-      username,
-    },
-  });
-  if (!userInDb) return null;
-
-  const passwordMatch = await bcrypt.compare(password, userInDb.passwordHash);
-  if (!passwordMatch) return null;
-
-  return { id: userInDb.id, username: userInDb.username };
+type LoginForm = {
+  username: string;
+  password: string;
 };
+
+export async function register({ username, password }: LoginForm) {
+  const passwordHash = await bcrypt.hash(password, 10);
+  const user = await db.user.create({
+    data: { username, passwordHash },
+  });
+  return { id: user.id, username };
+}
+
+export async function login({ username, password }: LoginForm) {
+  const user = await db.user.findUnique({
+    where: { username },
+  });
+  if (!user) return null;
+  const isCorrectPassword = await bcrypt.compare(password, user.passwordHash);
+  if (!isCorrectPassword) return null;
+  return { id: user.id, username };
+}
 
 const sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret) {
